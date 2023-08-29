@@ -10,7 +10,7 @@ use {
     },
 };
 
-type Result<T> = result::Result<T, Box<dyn error::Error>>;
+type Result<T, E = Box<dyn error::Error>> = result::Result<T, E>;
 
 #[derive(Debug)]
 struct ExitStatusError(ExitStatus);
@@ -78,68 +78,71 @@ fn find_bearssl_sources() -> Result<Sources> {
         }
     }
 
-    println!("cargo:rerun-if-env-changed={BEARSSL_GIT_HASH}");
-    let path = Path::new(BEARSSL_DEPS_PATH);
+    println!("cargo:rerun-if-env-changed={BEARSSL_GIT_HASH_VAR}");
+    let path = Path::new(&env::var("OUT_DIR")?).join(BEARSSL_DEPS_PATH);
     if !path.join("Makefile").exists() {
-        println!("cargo:warning=fetching BearSSL");
+        println!("cargo:warning=cloning BearSSL");
         Command::new("git")
             .arg("clone")
             .arg("https://www.bearssl.org/git/BearSSL")
-            .arg(BEARSSL_DEPS_PATH)
+            .arg(&path)
             .status()?
             .exit_ok()?;
-        let hash = env::var(BEARSSL_GIT_HASH_VAR).unwrap_or(BEARSSL_GIT_HASH.to_owned());
+    } else {
+        println!("cargo:warning=fetching BearSSL");
         Command::new("git")
-            .arg("checkout")
-            .arg(hash)
-            .current_dir(BEARSSL_DEPS_PATH)
+            .arg("fetch")
+            .current_dir(&path)
             .status()?
             .exit_ok()?;
     }
-    Ok(Sources::Raw(path.to_owned()))
+
+    let hash = env::var(BEARSSL_GIT_HASH_VAR);
+    let hash = hash.as_deref().unwrap_or(BEARSSL_GIT_HASH);
+    Command::new("git")
+        .arg("checkout")
+        .arg(hash)
+        .current_dir(&path)
+        .status()?
+        .exit_ok()?;
+
+    Ok(Sources::Raw(path))
 }
 
-fn into_string<P>(path: P) -> String
-where
-    P: AsRef<Path>,
-{
-    path.as_ref().to_str().unwrap().to_owned()
+fn find(root: &Path, pattern: &str) -> Result<Vec<PathBuf>> {
+    glob::glob(root.join(pattern).to_str().unwrap())?
+        .collect::<Result<_, _>>()
+        .map_err(Into::into)
 }
 
 fn main() -> Result<()> {
-    let (src_dir, build_dir) = match find_bearssl_sources()? {
-        Sources::Precompiled(dir) => (dir.clone(), dir),
+    let src_dir = match find_bearssl_sources()? {
+        Sources::Precompiled(dir) => dir,
         Sources::Raw(dir) => {
             println!("cargo:warning=compiling BearSSL at {:?}", dir);
 
-            Command::new("make")
-                .current_dir(BEARSSL_DEPS_PATH)
-                .status()?
-                .exit_ok()?;
+            cc::Build::new()
+                .include(dir.join("inc"))
+                .include(dir.join("src"))
+                .files(find(&dir, "src/**/*.c")?)
+                .opt_level_str("s")
+                .compile("bearssl");
 
-            (dir.clone(), dir.join("build"))
+            dir
         }
     };
-
-    let lib_dir = build_dir.clone();
-    println!(
-        "cargo:rustc-link-search=native={}",
-        lib_dir.as_path().to_str().unwrap()
-    );
-
-    println!("cargo:rustc-link-lib=static=bearssl");
-
-    if env::var("CARGO_CFG_TARGET_OS")? == "macos" {
-        println!("cargo:rustc-cdylib-link-arg=-Wl,-undefined,dynamic_lookup");
-    }
 
     println!("cargo:rerun-if-env-changed={BEARSSL_INCLUDE_PATH_VAR}");
     let include_path = env::var(BEARSSL_INCLUDE_PATH_VAR)
         .map_or_else(|_| src_dir.join("inc"), |v| Path::new(&v).to_owned());
 
     let mut builder = bindgen::Builder::default()
+        .header(include_path.join("bearssl.h").to_str().unwrap())
+        .allowlist_function("br_.*")
+        .allowlist_type("br_.*")
+        .allowlist_var("(br|BR)_.*")
         .array_pointers_in_arguments(true)
-        .clang_args(&["-I", into_string(include_path.clone()).as_str()])
+        .clang_args(&["-I", include_path.to_str().unwrap()])
         .ctypes_prefix("::core::ffi")
         .default_enum_style(EnumVariation::NewType {
             is_bitfield: false,
@@ -175,25 +178,6 @@ fn main() -> Result<()> {
             builder = builder.layout_tests(false);
         }
         _ => {}
-    }
-
-    let headers = [
-        "bearssl.h",
-        "bearssl_aead.h",
-        "bearssl_block.h",
-        "bearssl_ec.h",
-        "bearssl_hash.h",
-        "bearssl_hmac.h",
-        "bearssl_kdf.h",
-        "bearssl_pem.h",
-        "bearssl_prf.h",
-        "bearssl_rand.h",
-        "bearssl_rsa.h",
-        "bearssl_ssl.h",
-        "bearssl_x509.h",
-    ];
-    for header in &headers {
-        builder = builder.header(include_path.join(header).to_str().unwrap());
     }
 
     let bindings = builder.generate().expect("unable to generate bindings");

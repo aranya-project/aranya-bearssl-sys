@@ -15,6 +15,3 @@ Cargo.lock
 
 # Apple
 .DS_Store
-
-# Used by build.rs
-deps/
