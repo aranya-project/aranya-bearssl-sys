@@ -17,5 +17,5 @@ Other options include:
   can be found. (Note: make sure this stays up-to-date with the
   source files!)
 
-Note that `BEARSSL_GIT_HASH`, `BEArSSL_PRECOMPILED_PATH`, and
+Note that `BEARSSL_GIT_HASH`, `BEARSSL_PRECOMPILED_PATH`, and
 `BEARSSL_SOURCE_PATH` are mutually exclusive.

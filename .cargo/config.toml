@@ -1,0 +1,8 @@
+[target.powerpc-wrs-vxworks]
+#linker = "lld"
+rustflags = [
+    "-Ctarget-cpu=e500",
+    "-Crelocation-model=static",
+    "-Ctarget-feature=-crt-static",
+    "-Zdwarf-version=2",
+]

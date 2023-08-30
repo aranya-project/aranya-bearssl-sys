@@ -1,0 +1,63 @@
+name: "Test and Build"
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+env:
+  REV: ${{ github.run_id }}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-code:
+    strategy:
+      matrix:
+        os: [
+          "macos-latest",
+          "self-hosted-linux-arm",
+          "self-hosted-linux-arm64",
+          "ubuntu-latest",
+        ]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Clean temp files
+        run: rm -rf ${{ github.workspace }}/_temp
+        if: ${{ matrix.os == 'self-hosted-linux-arm' }}
+      - uses: ./.github/actions/setup
+        with:
+          gh-token: ${{ secrets.CC_BUILD_TOKEN }}
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+      - name: Check code
+        run: cargo check-all-features
+      - name: Clippy
+        run: cargo clippy -- -D warnings
+
+  build:
+    strategy:
+      matrix:
+        os: [
+          "macos-latest",
+          "self-hosted-linux-arm",
+          "self-hosted-linux-arm64",
+          "ubuntu-latest",
+        ]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Clean temp files
+        run: rm -rf ${{ github.workspace }}/_temp
+        if: ${{ matrix.os == 'self-hosted-linux-arm' }}
+      - uses: ./.github/actions/setup
+        with:
+          gh-token: ${{ secrets.CC_BUILD_TOKEN }}
+          os: ${{ matrix.os }}
+      - name: Build code
+        run: cargo build --verbose --release

@@ -1,0 +1,92 @@
+name: 'Setup build tools'
+description: 'Action for setting up build tools'
+inputs:
+  gh-token:
+    description: 'GitHub Access Token'
+    required: true
+  go-version:
+    description: 'Go version'
+    required: true
+    default: 'stable'
+  target:
+    description: 'OS-arch target being compiled for (e.g., linux-arm64)'
+runs:
+  using: "composite"
+  steps:
+    - name: Install system dependencies
+      run: |
+        set -x
+
+        lsb_release -a
+
+        sudo apt-get update -y
+        sudo apt-get install -y --no-install-recommends \
+          build-essential \
+          clang-12 \
+          clang-tools-12 \
+          cmake \
+          libc++-12-dev \
+          libc++abi-12-dev \
+          libclang-12-dev \
+          libclang1-12 \
+          llvm-12 \
+          llvm-12-dev \
+          lld-12 \
+          ninja-build
+
+          echo "CC=$(which clang-12)" >> $GITHUB_ENV
+          echo "CXX=$GITHUB_WORKSPACE/clang++12" >> $GITHUB_ENV
+          echo "LD=$(which lld-12)" >> $GITHUB_ENV
+      shell: bash
+      if: ${{ matrix.os == 'self-hosted-linux-arm64' }}
+
+    - name: Set up git
+      run: |
+        git config --global url."https://${{ inputs.gh-token }}@github.com/".insteadOf https://github.com/
+        echo "CARGO_NET_GIT_FETCH_WITH_CLI=true" >> $GITHUB_ENV
+      shell: bash
+
+    - name: Cache Rust
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      if: ${{ matrix.os != 'self-hosted-linux-arm64' }}
+
+    - name: Install Rustup
+      uses: spideroak-inc/setup-rust@fork
+    # Various runners have a 64-bit kernel with a 32-bit userspace.
+    # Setting rustup's default host to armv7 allows using the 32-bit executables.
+    - name: Set rustup's host
+      shell: bash
+      run: rustup set default-host armv7-unknown-linux-gnueabihf
+      if: ${{ matrix.os == 'self-hosted-linux-arm' }}
+    - name: Verify toolchain
+      shell: bash
+      run: rustup show active-toolchain
+      if: ${{ matrix.os == 'self-hosted-linux-arm' }}
+    - name: cargo version
+      shell: bash
+      run: cargo --version --verbose
+    - name: glibc version
+      shell: bash
+      run: ldd --version
+      if: ${{ matrix.os == 'self-hosted-linux-arm' }}
+    - name: Intall cargo-all-features
+      run: cargo install --force cargo-all-features
+      shell: bash
+      if: ${{ inputs.target != 'vxworks-ppc' }}
+
+    - name: Setup VxWorks Environment
+      run: |
+        rustup toolchain install nightly --component rust-src
+        echo "RUSTUP_TOOLCHAIN=nightly" >> "$GITHUB_ENV"
+        echo "CARGO_UNSTABLE_BUILD_STD=core,alloc" >> "$GITHUB_ENV"
+        echo "CARGO_BUILD_TARGET=powerpc-wrs-vxworks" >> "$GITHUB_ENV"
+      shell: bash
+      if: ${{ inputs.target == 'vxworks-ppc' }}

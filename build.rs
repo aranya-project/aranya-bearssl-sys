@@ -121,12 +121,38 @@ fn main() -> Result<()> {
         Sources::Raw(dir) => {
             println!("cargo:warning=compiling BearSSL at {:?}", dir);
 
-            cc::Build::new()
+            let mut build = cc::Build::new();
+            build
                 .include(dir.join("inc"))
                 .include(dir.join("src"))
                 .files(find(&dir, "src/**/*.c")?)
-                .opt_level_str("s")
-                .compile("bearssl");
+                .opt_level_str("s");
+
+            match std::env::var("CARGO_CFG_TARGET_OS")?.as_str() {
+                "linux" => {
+                    build
+                        .flag("-Wstack-protector")
+                        .flag("-fstack-protector-all");
+                }
+                "vxworks" => {
+                    build
+                        .static_flag(true)
+                        .flag("-mrtp")
+                        .flag("-msoft-float")
+                        .flag("-mstrict-align")
+                        .flag("-mregnames")
+                        .flag("-fno-split-stack")
+                        .flag("-fno-strict-aliasing")
+                        .flag("-Wstack-protector")
+                        .flag("-fstack-protector-all")
+                        .flag("-gdwarf-2")
+                        .define("_C99", None)
+                        .define("_HAS_C9X", None);
+                }
+                _ => {}
+            }
+
+            build.compile("bearssl");
 
             dir
         }
