@@ -169,6 +169,7 @@ fn main() -> Result<()> {
         .allowlist_var("(br|BR)_.*")
         .array_pointers_in_arguments(true)
         .clang_args(&["-I", include_path.to_str().unwrap()])
+        .clang_arg(format!("--target={}", std::env::var("HOST").unwrap()))
         .ctypes_prefix("::core::ffi")
         .default_enum_style(EnumVariation::NewType {
             is_bitfield: false,
