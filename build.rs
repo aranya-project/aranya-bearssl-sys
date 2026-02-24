@@ -5,7 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use bindgen::{EnumVariation, Formatter, MacroTypeVariation};
+use bindgen::{EnumVariation, MacroTypeVariation};
 
 fn find(root: &Path, pattern: &str) -> impl Iterator<Item: AsRef<Path>> {
     glob::glob(root.join(pattern).to_str().unwrap())
@@ -65,18 +65,10 @@ fn build_rust_interface(src_dir: &Path) {
             is_global: false,
         })
         .default_macro_constant_type(MacroTypeVariation::Signed)
-        .derive_copy(true)
-        .derive_debug(true)
         .derive_default(true)
         .derive_eq(true)
         .enable_function_attribute_detection()
-        .fit_macro_constants(false)
-        .formatter(Formatter::Rustfmt)
-        .generate_comments(true)
-        .layout_tests(true)
         .merge_extern_blocks(true)
-        .prepend_enum_name(true)
-        .size_t_is_usize(true)
         .time_phases(true)
         .use_core();
 
