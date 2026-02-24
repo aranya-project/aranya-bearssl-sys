@@ -53,7 +53,7 @@ fn build_c_library(src_dir: &Path) {
 fn build_rust_interface(src_dir: &Path) {
     let include_path = src_dir.join("inc");
 
-    let mut builder = bindgen::Builder::default()
+    let builder = bindgen::Builder::default()
         .header(include_path.join("bearssl.h").to_str().unwrap())
         .allowlist_function("br_.*")
         .allowlist_type("br_.*")
@@ -71,22 +71,6 @@ fn build_rust_interface(src_dir: &Path) {
         .merge_extern_blocks(true)
         .time_phases(true)
         .use_core();
-
-    let target = env::var("TARGET").expect("invalid target");
-    match target.as_ref() {
-        // bindgen produces alignment tests that cause undefined behavior [1]
-        // when applied to explicitly unaligned types like OSUnalignedU64.
-        //
-        // There is no way to disable these tests for only some types
-        // and it's not nice to suppress warnings for the entire crate,
-        // so let's disable all alignment tests and hope for the best.
-        //
-        // [1]: https://github.com/rust-lang/rust-bindgen/issues/1651
-        "aarch64-apple-ios" | "aarch64-apple-ios-sim" => {
-            builder = builder.layout_tests(false);
-        }
-        _ => {}
-    }
 
     let bindings = builder.generate().expect("unable to generate bindings");
 
