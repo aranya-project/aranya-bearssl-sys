@@ -8,7 +8,8 @@ repository = "https://github.com/aranya-project/aranya-bearssl-sys"
 links = "bearssl"
 readme = "README.md"
 categories = ["cryptography", "external-ffi-bindings"]
-edition = "2021"
+edition = "2024"
+rust-version = "1.85"
 include = [
     "/*.md",
     "/*.toml",

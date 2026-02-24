@@ -5,7 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use bindgen::{EnumVariation, MacroTypeVariation};
+use bindgen::{EnumVariation, MacroTypeVariation, RustEdition, RustTarget};
 
 fn main() {
     let src = Path::new("vendor");
@@ -72,6 +72,8 @@ fn build_rust_interface(src_dir: &Path) {
         .enable_function_attribute_detection()
         .merge_extern_blocks(true)
         .time_phases(true)
+        .rust_target(RustTarget::stable(85, 0).unwrap())
+        .rust_edition(RustEdition::Edition2024)
         .use_core();
 
     let bindings = builder.generate().expect("unable to generate bindings");
