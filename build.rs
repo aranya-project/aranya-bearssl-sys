@@ -7,27 +7,24 @@ use std::{
 
 use bindgen::{EnumVariation, Formatter, MacroTypeVariation};
 
-type Result<T, E = Box<dyn std::error::Error>> = std::result::Result<T, E>;
-
-fn find(root: &Path, pattern: &str) -> Result<Vec<PathBuf>> {
-    glob::glob(root.join(pattern).to_str().unwrap())?
-        .collect::<Result<_, _>>()
-        .map_err(Into::into)
+fn find(root: &Path, pattern: &str) -> impl Iterator<Item: AsRef<Path>> {
+    glob::glob(root.join(pattern).to_str().unwrap())
+        .expect("failed to glob")
+        .map(|r| r.expect("bad glob entry"))
 }
 
-fn main() -> Result<()> {
-    let src_dir = Path::new("vendor");
-
-    println!("cargo:warning=compiling BearSSL at {:?}", src_dir);
-
+fn build_c_library(src_dir: &Path) {
     let mut build = cc::Build::new();
     build
         .include(src_dir.join("inc"))
         .include(src_dir.join("src"))
-        .files(find(src_dir, "src/**/*.c")?)
+        .files(find(src_dir, "src/**/*.c"))
         .opt_level_str("s");
 
-    match env::var("CARGO_CFG_TARGET_OS")?.as_str() {
+    match env::var("CARGO_CFG_TARGET_OS")
+        .expect("invalid target OS")
+        .as_str()
+    {
         "linux" => {
             build
                 .flag("-Wstack-protector")
@@ -35,7 +32,6 @@ fn main() -> Result<()> {
         }
         "vxworks" => {
             build
-                .static_flag(true)
                 .flag("-mrtp")
                 .flag("-msoft-float")
                 .flag("-mstrict-align")
@@ -52,7 +48,9 @@ fn main() -> Result<()> {
     }
 
     build.compile("bearssl");
+}
 
+fn build_rust_interface(src_dir: &Path) {
     let include_path = src_dir.join("inc");
 
     let mut builder = bindgen::Builder::default()
@@ -62,7 +60,6 @@ fn main() -> Result<()> {
         .allowlist_var("(br|BR)_.*")
         .array_pointers_in_arguments(true)
         .clang_args(&["-I", include_path.to_str().unwrap()])
-        .ctypes_prefix("::core::ffi")
         .default_enum_style(EnumVariation::NewType {
             is_bitfield: false,
             is_global: false,
@@ -83,7 +80,7 @@ fn main() -> Result<()> {
         .time_phases(true)
         .use_core();
 
-    let target = env::var("TARGET")?;
+    let target = env::var("TARGET").expect("invalid target");
     match target.as_ref() {
         // bindgen produces alignment tests that cause undefined behavior [1]
         // when applied to explicitly unaligned types like OSUnalignedU64.
@@ -100,9 +97,17 @@ fn main() -> Result<()> {
     }
 
     let bindings = builder.generate().expect("unable to generate bindings");
-    let out_path = PathBuf::from(env::var("OUT_DIR")?);
+
+    let out_path = PathBuf::from(env::var_os("OUT_DIR").unwrap());
     bindings
         .write_to_file(out_path.join("bindings.rs"))
         .expect("unable to write bindings");
-    Ok(())
+}
+
+fn main() {
+    let src = Path::new("vendor");
+    std::thread::scope(|s| {
+        s.spawn(|| build_c_library(src));
+        s.spawn(|| build_rust_interface(src));
+    });
 }
