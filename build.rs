@@ -7,10 +7,12 @@ use std::{
 
 use bindgen::{EnumVariation, MacroTypeVariation};
 
-fn find(root: &Path, pattern: &str) -> impl Iterator<Item: AsRef<Path>> {
-    glob::glob(root.join(pattern).to_str().unwrap())
-        .expect("failed to glob")
-        .map(|r| r.expect("bad glob entry"))
+fn main() {
+    let src = Path::new("vendor");
+    std::thread::scope(|s| {
+        s.spawn(|| build_c_library(src));
+        s.spawn(|| build_rust_interface(src));
+    });
 }
 
 fn build_c_library(src_dir: &Path) {
@@ -80,10 +82,8 @@ fn build_rust_interface(src_dir: &Path) {
         .expect("unable to write bindings");
 }
 
-fn main() {
-    let src = Path::new("vendor");
-    std::thread::scope(|s| {
-        s.spawn(|| build_c_library(src));
-        s.spawn(|| build_rust_interface(src));
-    });
+fn find(root: &Path, pattern: &str) -> impl Iterator<Item: AsRef<Path>> {
+    glob::glob(root.join(pattern).to_str().unwrap())
+        .expect("failed to glob")
+        .map(|r| r.expect("bad glob entry"))
 }
