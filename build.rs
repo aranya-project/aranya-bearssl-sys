@@ -68,7 +68,6 @@ fn build_rust_interface(src_dir: &Path) {
         })
         .default_macro_constant_type(MacroTypeVariation::Signed)
         .derive_default(true)
-        .derive_eq(true)
         .enable_function_attribute_detection()
         .merge_extern_blocks(true)
         .time_phases(true)
