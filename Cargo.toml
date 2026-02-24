@@ -15,6 +15,10 @@ include = [
     "/*.toml",
     "/build.rs",
     "/src",
+    "/vendor/src",
+    "/vendor/inc",
+    "/vendor/LICENSE.txt",
+    "/vendor/README.txt",
 ]
 
 [build-dependencies]
