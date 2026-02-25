@@ -25,14 +25,13 @@ jobs:
     strategy:
       matrix:
         runner:
-          # TODO(eric): re-enable after we get macOS runners.
-          # - "macos-latest"
-          - "self-hosted-linux-arm"
-          - "self-hosted-linux-arm64"
-          - "self-hosted-linux-amd64"
+          - ubuntu-latest
+          - ubuntu2404-arm64-4core
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v3
+        with:
+          submodules: true
 
       - uses: ./.github/actions/setup
         with:
@@ -44,7 +43,7 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Check code
-        run: cargo check-all-features
+        run: cargo check
 
       - name: Clippy
         run: cargo clippy -- -D warnings
@@ -53,14 +52,13 @@ jobs:
     strategy:
       matrix:
         runner:
-          # TODO(eric): re-enable after we get macOS runners.
-          # - "macos-latest"
-          - "self-hosted-linux-arm"
-          - "self-hosted-linux-arm64"
-          - "self-hosted-linux-amd64"
+          - ubuntu-latest
+          - ubuntu2404-arm64-4core
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v3
+        with:
+          submodules: true
 
       - uses: ./.github/actions/setup
         with:

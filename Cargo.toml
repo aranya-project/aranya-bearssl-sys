@@ -8,15 +8,20 @@ repository = "https://github.com/aranya-project/aranya-bearssl-sys"
 links = "bearssl"
 readme = "README.md"
 categories = ["cryptography", "external-ffi-bindings"]
-edition = "2021"
+edition = "2024"
+rust-version = "1.85"
 include = [
     "/*.md",
     "/*.toml",
     "/build.rs",
     "/src",
+    "/vendor/src",
+    "/vendor/inc",
+    "/vendor/LICENSE.txt",
+    "/vendor/README.txt",
 ]
 
 [build-dependencies]
-bindgen = { version = "0.70", default-features = false, features = ["runtime"] }
+bindgen = { version = "0.72", default-features = false, features = ["runtime"] }
 cc = { version = "1.0.79", features = ["parallel"] }
 glob = "0.3.1"
